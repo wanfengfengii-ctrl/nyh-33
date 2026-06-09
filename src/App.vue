@@ -60,7 +60,7 @@ function onExitReplay() {
             <ReplayControl v-if="isReplayMode && !isNavigationMode" @exit="onExitReplay" />
             <template v-else>
               <n-tabs v-model:value="rightTabValue" type="line" size="small" class="right-tabs">
-                <n-tab-pane name="info" tab="测量信息">
+                <n-tab-pane name="info" :tab="isNavigationMode ? '航行信息' : '测量信息'">
                   <InfoPanel />
                 </n-tab-pane>
                 <n-tab-pane name="log" tab="航海日志">

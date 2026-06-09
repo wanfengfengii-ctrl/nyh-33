@@ -17,15 +17,43 @@
           </div>
         </div>
 
+        <div class="stats-detail">
+          <div class="stats-detail-item">
+            <span class="stats-detail-label">平均分</span>
+            <span class="stats-detail-value">{{ displayAvgScore }}</span>
+          </div>
+          <div class="stats-detail-item">
+            <span class="stats-detail-label">平均误差</span>
+            <span class="stats-detail-value">{{ displayAvgError }}°</span>
+          </div>
+        </div>
+
         <n-divider style="margin: 8px 0" />
 
-        <n-space size="small">
-          <n-radio-group v-model:value="filterModeValue" size="small" @update:value="onFilterModeChange">
-            <n-radio-button value="all">全部</n-radio-button>
-            <n-radio-button value="practice">练习</n-radio-button>
-            <n-radio-button value="exam">考核</n-radio-button>
-          </n-radio-group>
+        <n-space size="small" vertical style="width: 100%">
+          <div class="filter-row">
+            <span class="filter-label">日期范围</span>
+            <n-button size="tiny" type="default" @click="showDateRangePicker = !showDateRangePicker">
+              {{ dateRangeText }}
+            </n-button>
+          </div>
+          <n-card v-if="showDateRangePicker" :bordered="false" size="small" class="date-picker-card">
+            <n-space vertical size="small">
+              <n-date-picker v-model:value="startDateValue" type="date" placeholder="开始日期" size="small" />
+              <n-date-picker v-model:value="endDateValue" type="date" placeholder="结束日期" size="small" />
+              <n-space justify="space-between">
+                <n-button size="tiny" @click="clearDateRange">清除</n-button>
+                <n-button size="tiny" type="primary" @click="applyDateRange">确定</n-button>
+              </n-space>
+            </n-space>
+          </n-card>
         </n-space>
+
+        <n-radio-group v-model:value="filterModeValue" size="small" @update:value="onFilterModeChange">
+          <n-radio-button value="all">全部</n-radio-button>
+          <n-radio-button value="practice">练习</n-radio-button>
+          <n-radio-button value="exam">考核</n-radio-button>
+        </n-radio-group>
 
         <n-select
           v-model:value="sortByValue"
@@ -70,9 +98,11 @@
               <n-button size="tiny" type="primary" @click.stop="onReplayLog(log.id)">
                 回放
               </n-button>
-              <n-button size="tiny" @click.stop="onExportReport(log)">
-                导出
-              </n-button>
+              <n-dropdown :options="exportOptions" trigger="click" @select="(k: string | number) => onExportSelect(log, String(k))">
+                <n-button size="tiny">
+                  导出
+                </n-button>
+              </n-dropdown>
               <n-button size="tiny" type="error" @click.stop="onDeleteLog(log.id)">
                 删除
               </n-button>
@@ -98,7 +128,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import {
   NCard,
   NSpace,
@@ -110,6 +140,8 @@ import {
   NTag,
   NButton,
   NEmpty,
+  NDatePicker,
+  NDropdown,
   useMessage,
 } from 'naive-ui'
 import { useLogStore, type ObservationLog, type LogFilterMode, type LogSortBy } from '../stores/log'
@@ -122,16 +154,51 @@ const emit = defineEmits<{
 
 const message = useMessage()
 const logStore = useLogStore()
-const { filteredLogs, stats, currentReplayLog } = storeToRefs(logStore)
+const { filteredLogs, stats, currentReplayLog, filterMode, sortBy, dateRange, searchQuery } = storeToRefs(logStore)
 
-const filterModeValue = ref<LogFilterMode>('all')
-const sortByValue = ref<LogSortBy>('date')
-const searchValue = ref('')
+const filterModeValue = ref<LogFilterMode>(filterMode.value)
+const sortByValue = ref<LogSortBy>(sortBy.value)
+const searchValue = ref(searchQuery.value)
+
+const showDateRangePicker = ref(false)
+const startDateValue = ref<number | null>(null)
+const endDateValue = ref<number | null>(null)
+
+const dateRangeText = computed(() => {
+  if (!dateRange.value) return '全部时间'
+  const [start, end] = dateRange.value
+  const startStr = new Date(start).toLocaleDateString('zh-CN')
+  const endStr = new Date(end).toLocaleDateString('zh-CN')
+  return `${startStr} ~ ${endStr}`
+})
+
+const displayAvgScore = computed(() => {
+  if (filterModeValue.value === 'practice') return stats.value.avgPracticeScore
+  if (filterModeValue.value === 'exam') return stats.value.avgExamScore
+  const allLogs = filteredLogs.value
+  if (allLogs.length === 0) return 0
+  const sum = allLogs.reduce((acc, log) => acc + log.finalResult.score, 0)
+  return Math.round((sum / allLogs.length) * 10) / 10
+})
+
+const displayAvgError = computed(() => {
+  if (filterModeValue.value === 'practice') return stats.value.avgPracticeError
+  if (filterModeValue.value === 'exam') return stats.value.avgExamError
+  const allLogs = filteredLogs.value
+  if (allLogs.length === 0) return 0
+  const sum = allLogs.reduce((acc, log) => acc + Math.abs(log.finalResult.measurementError), 0)
+  return Math.round((sum / allLogs.length) * 100) / 100
+})
 
 const sortOptions: SelectOption[] = [
   { label: '按日期排序', value: 'date' },
   { label: '按分数排序', value: 'score' },
   { label: '按时长排序', value: 'duration' },
+]
+
+const exportOptions = [
+  { label: '训练报告(TXT)', value: 'report' },
+  { label: '完整过程(CSV)', value: 'csv' },
 ]
 
 function formatDate(timestamp: number): string {
@@ -175,6 +242,24 @@ function onSearchChange(value: string) {
   logStore.setSearchQuery(value)
 }
 
+function applyDateRange() {
+  if (startDateValue.value && endDateValue.value) {
+    const start = new Date(startDateValue.value)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(endDateValue.value)
+    end.setHours(23, 59, 59, 999)
+    logStore.setDateRange([start.getTime(), end.getTime()])
+  }
+  showDateRangePicker.value = false
+}
+
+function clearDateRange() {
+  startDateValue.value = null
+  endDateValue.value = null
+  logStore.setDateRange(null)
+  showDateRangePicker.value = false
+}
+
 function onReplayLog(logId: string) {
   emit('replay', logId)
 }
@@ -183,6 +268,14 @@ function onDeleteLog(logId: string) {
   if (confirm('确定要删除这条日志吗？')) {
     logStore.deleteLog(logId)
     message.success('日志已删除')
+  }
+}
+
+function onExportSelect(log: ObservationLog, key: string) {
+  if (key === 'report') {
+    onExportReport(log)
+  } else if (key === 'csv') {
+    onExportCSV(log)
   }
 }
 
@@ -199,6 +292,21 @@ function onExportReport(log: ObservationLog) {
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
   message.success('报告已导出')
+}
+
+function onExportCSV(log: ObservationLog) {
+  const csv = logStore.exportLogAsCSV(log)
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  const dateStr = new Date(log.startTime).toISOString().slice(0, 10)
+  a.download = `观测过程_${log.finalResult.bodyName}_${dateStr}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+  message.success('CSV已导出')
 }
 
 function onExportAll() {
@@ -344,5 +452,50 @@ function onClearAll() {
 
 .log-actions .n-button {
   flex: 1;
+}
+
+.filter-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.filter-label {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+}
+
+.date-picker-card {
+  background: #f5f5f5;
+  padding: 8px;
+}
+
+.stats-detail {
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 0;
+  background: #f5f9ff;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+.stats-detail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.stats-detail-label {
+  font-size: 11px;
+  color: #999;
+}
+
+.stats-detail-value {
+  font-size: 14px;
+  font-weight: 600;
+  font-family: monospace;
+  color: #2080f0;
 }
 </style>
