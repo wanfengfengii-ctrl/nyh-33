@@ -168,8 +168,7 @@ export const useAstrolabeStore = defineStore('astrolabe', () => {
       resetMeasurement()
     }
     if (mode.value !== 'navigation') {
-      updateStepStatus(1, 'completed')
-      updateStepStatus(2, 'current')
+      setCurrentStep(2)
     }
   }
 
@@ -179,8 +178,7 @@ export const useAstrolabeStore = defineStore('astrolabe', () => {
       resetMeasurement()
     }
     if (mode.value !== 'navigation') {
-      updateStepStatus(2, 'completed')
-      updateStepStatus(3, 'current')
+      setCurrentStep(3)
     }
   }
 
@@ -194,8 +192,7 @@ export const useAstrolabeStore = defineStore('astrolabe', () => {
       resetMeasurement()
     }
     if (mode.value !== 'navigation') {
-      updateStepStatus(3, 'completed')
-      updateStepStatus(4, 'current')
+      setCurrentStep(4)
     }
   }
 
@@ -224,9 +221,21 @@ export const useAstrolabeStore = defineStore('astrolabe', () => {
     measurementError.value = 0
     alidadeAngle.value = 0
     if (mode.value !== 'navigation') {
-      updateStepStatus(4, 'current')
-      updateStepStatus(5, 'pending')
+      setCurrentStep(4)
     }
+  }
+
+  function resetAll() {
+    date.value = new Date()
+    latitude.value = 30
+    longitude.value = 120
+    selectedBodyId.value = 'sun'
+    alidadeAngle.value = 45
+    isMeasurementComplete.value = false
+    score.value = 0
+    scoreGrade.value = ''
+    measurementError.value = 0
+    resetSteps()
   }
 
   function setMode(newMode: AppMode) {
@@ -243,6 +252,29 @@ export const useAstrolabeStore = defineStore('astrolabe', () => {
     const step = stepList.find((s) => s.id === stepId)
     if (step) {
       step.status = status
+    }
+
+    if (status === 'current') {
+      const stepIndex = stepList.findIndex((s) => s.id === stepId)
+      for (let i = stepIndex + 1; i < stepList.length; i++) {
+        stepList[i].status = 'pending'
+      }
+    }
+  }
+
+  function setCurrentStep(stepId: number) {
+    const stepList = mode.value === 'navigation' ? navSteps.value : steps.value
+    const stepIndex = stepList.findIndex((s) => s.id === stepId)
+    if (stepIndex < 0) return
+
+    for (let i = 0; i < stepList.length; i++) {
+      if (i < stepIndex) {
+        stepList[i].status = 'completed'
+      } else if (i === stepIndex) {
+        stepList[i].status = 'current'
+      } else {
+        stepList[i].status = 'pending'
+      }
     }
   }
 
@@ -265,8 +297,7 @@ export const useAstrolabeStore = defineStore('astrolabe', () => {
       resetMeasurement()
     }
     if (mode.value !== 'navigation') {
-      updateStepStatus(1, 'completed')
-      updateStepStatus(2, 'current')
+      setCurrentStep(2)
     }
   }
 
@@ -479,6 +510,7 @@ export const useAstrolabeStore = defineStore('astrolabe', () => {
     setAlidadeAngle,
     completeMeasurement,
     resetMeasurement,
+    resetAll,
     setMode,
     setTime,
     setWeather,

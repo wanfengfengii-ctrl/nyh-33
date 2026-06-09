@@ -207,8 +207,12 @@ function onComplete() {
 }
 
 function onReset() {
-  store.resetMeasurement()
-  alidadeAngleValue.value = 0
+  store.resetAll()
+  dateValue.value = dateRef.value.getTime()
+  timeValue.value = dateRef.value.getTime()
+  latitudeValue.value = latitudeRef.value
+  selectedBodyIdValue.value = selectedBodyIdRef.value
+  alidadeAngleValue.value = alidadeAngleRef.value
 }
 </script>
 
