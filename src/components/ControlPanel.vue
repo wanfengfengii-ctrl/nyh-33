@@ -5,8 +5,9 @@
         <n-space size="small" style="margin-bottom: 8px">
           <n-tag type="success" size="large">模式</n-tag>
           <n-radio-group v-model:value="modeValue" @update:value="onModeChange">
-            <n-radio-button value="practice">练习模式</n-radio-button>
-            <n-radio-button value="exam">考核模式</n-radio-button>
+            <n-radio-button value="practice">练习</n-radio-button>
+            <n-radio-button value="exam">考核</n-radio-button>
+            <n-radio-button value="navigation">导航</n-radio-button>
           </n-radio-group>
         </n-space>
 
@@ -127,7 +128,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { NCard, NSpace, NTag, NRadioGroup, NRadioButton, NDivider, NDatePicker, NTimePicker, NSlider, NSelect, NAlert, NButton } from 'naive-ui'
-import { useAstrolabeStore } from '../stores/astrolabe'
+import { useAstrolabeStore, type AppMode } from '../stores/astrolabe'
 import { storeToRefs } from 'pinia'
 import { CELESTIAL_BODIES } from '../utils/astronomy'
 import type { SelectOption } from 'naive-ui'
@@ -167,7 +168,7 @@ function formatTime(timestamp: number | null): string {
 }
 
 function onModeChange(value: string) {
-  store.setMode(value as 'practice' | 'exam')
+  store.setMode(value as AppMode)
 }
 
 function onDateChange(value: number | null) {

@@ -1,8 +1,18 @@
 <script setup lang="ts">
 import { NConfigProvider, NMessageProvider } from 'naive-ui'
 import ControlPanel from './components/ControlPanel.vue'
+import NavControlPanel from './components/NavControlPanel.vue'
 import InfoPanel from './components/InfoPanel.vue'
 import Astrolabe3D from './components/Astrolabe3D.vue'
+import SeaChart from './components/SeaChart.vue'
+import { useAstrolabeStore } from './stores/astrolabe'
+import { storeToRefs } from 'pinia'
+import { computed } from 'vue'
+
+const store = useAstrolabeStore()
+const { mode } = storeToRefs(store)
+
+const isNavigationMode = computed(() => mode.value === 'navigation')
 </script>
 
 <template>
@@ -10,17 +20,21 @@ import Astrolabe3D from './components/Astrolabe3D.vue'
     <n-message-provider>
       <div class="app-container">
         <header class="app-header">
-          <h1 class="title">古航海星盘模拟器</h1>
-          <p class="subtitle">Astrolabe Simulator</p>
+          <h1 class="title">{{ isNavigationMode ? '恒星导航定位系统' : '古航海星盘模拟器' }}</h1>
+          <p class="subtitle">{{ isNavigationMode ? 'Celestial Navigation System' : 'Astrolabe Simulator' }}</p>
         </header>
 
         <div class="app-main">
           <aside class="sider sider-left">
-            <ControlPanel />
+            <NavControlPanel v-if="isNavigationMode" />
+            <ControlPanel v-else />
           </aside>
 
           <main class="content">
-            <div class="astrolabe-wrapper">
+            <div class="chart-wrapper" v-if="isNavigationMode">
+              <SeaChart />
+            </div>
+            <div class="astrolabe-wrapper" v-else>
               <Astrolabe3D />
             </div>
           </main>
@@ -109,5 +123,16 @@ import Astrolabe3D from './components/Astrolabe3D.vue'
   max-width: 700px;
   max-height: 700px;
   position: relative;
+}
+
+.chart-wrapper {
+  width: 100%;
+  height: 100%;
+  max-width: 900px;
+  max-height: 700px;
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 </style>
