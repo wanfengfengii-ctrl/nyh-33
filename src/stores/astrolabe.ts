@@ -73,14 +73,25 @@ export const useAstrolabeStore = defineStore('astrolabe', () => {
     return bodyPosition.value.altitude
   })
 
+  const displayAzimuth = computed(() => {
+    if (mode.value === 'exam' && !isMeasurementComplete.value) return null
+    return bodyPosition.value.azimuth
+  })
+
   function setDate(newDate: Date) {
     date.value = newDate
+    if (isMeasurementComplete.value) {
+      resetMeasurement()
+    }
     updateStepStatus(1, 'completed')
     updateStepStatus(2, 'current')
   }
 
   function setLatitude(lat: number) {
     latitude.value = Math.max(-90, Math.min(90, lat))
+    if (isMeasurementComplete.value) {
+      resetMeasurement()
+    }
     updateStepStatus(2, 'completed')
     updateStepStatus(3, 'current')
   }
@@ -91,7 +102,9 @@ export const useAstrolabeStore = defineStore('astrolabe', () => {
 
   function selectBody(bodyId: string) {
     selectedBodyId.value = bodyId
-    isMeasurementComplete.value = false
+    if (isMeasurementComplete.value) {
+      resetMeasurement()
+    }
     updateStepStatus(3, 'completed')
     updateStepStatus(4, 'current')
   }
@@ -151,6 +164,9 @@ export const useAstrolabeStore = defineStore('astrolabe', () => {
     const newDate = new Date(date.value)
     newDate.setHours(hours, minutes, 0, 0)
     date.value = newDate
+    if (isMeasurementComplete.value) {
+      resetMeasurement()
+    }
     updateStepStatus(1, 'completed')
     updateStepStatus(2, 'current')
   }
@@ -175,6 +191,7 @@ export const useAstrolabeStore = defineStore('astrolabe', () => {
     error,
     displayError,
     displayAltitude,
+    displayAzimuth,
     setDate,
     setLatitude,
     setLongitude,

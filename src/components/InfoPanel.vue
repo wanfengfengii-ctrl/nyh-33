@@ -40,7 +40,14 @@
 
         <div class="info-row">
           <span class="info-label">方位角</span>
-          <span class="info-value">{{ bodyPosition.azimuth.toFixed(1) }}°</span>
+          <span class="info-value">
+            <template v-if="displayAzimuth !== null">
+              {{ displayAzimuth.toFixed(1) }}°
+            </template>
+            <template v-else>
+              <n-tag size="small" type="warning">考核模式</n-tag>
+            </template>
+          </span>
         </div>
 
         <n-divider />
@@ -117,11 +124,11 @@ import type { StepStatus } from '../stores/astrolabe'
 const store = useAstrolabeStore()
 const {
   selectedBody,
-  bodyPosition,
   isBodyVisible,
   measuredAltitude,
   displayError,
   displayAltitude,
+  displayAzimuth,
   latitude,
   steps,
   isMeasurementComplete,
