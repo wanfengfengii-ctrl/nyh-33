@@ -109,6 +109,26 @@
 
         <n-space style="margin-top: 16px">
           <n-button
+            v-if="!isRecording"
+            type="success"
+            :disabled="!isBodyVisibleValue"
+            @click="onStartRecording"
+            style="flex: 1"
+          >
+            开始录制
+          </n-button>
+          <n-button
+            v-else
+            type="error"
+            @click="onStopRecording"
+            style="flex: 1"
+          >
+            停止录制
+          </n-button>
+        </n-space>
+
+        <n-space style="margin-top: 8px">
+          <n-button
             type="primary"
             :disabled="!isBodyVisibleValue"
             @click="onComplete"
@@ -126,14 +146,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { NCard, NSpace, NTag, NRadioGroup, NRadioButton, NDivider, NDatePicker, NTimePicker, NSlider, NSelect, NAlert, NButton } from 'naive-ui'
+import { ref, computed, watch } from 'vue'
+import { NCard, NSpace, NTag, NRadioGroup, NRadioButton, NDivider, NDatePicker, NTimePicker, NSlider, NSelect, NAlert, NButton, useMessage } from 'naive-ui'
 import { useAstrolabeStore, type AppMode } from '../stores/astrolabe'
+import { useLogStore } from '../stores/log'
 import { storeToRefs } from 'pinia'
 import { CELESTIAL_BODIES } from '../utils/astronomy'
 import type { SelectOption } from 'naive-ui'
 
+const message = useMessage()
 const store = useAstrolabeStore()
+const logStore = useLogStore()
 const {
   mode: modeRef,
   date: dateRef,
@@ -141,7 +164,9 @@ const {
   selectedBodyId: selectedBodyIdRef,
   alidadeAngle: alidadeAngleRef,
   isBodyVisible: isBodyVisibleRef,
+  steps: stepsRef,
 } = storeToRefs(store)
+const { isRecording } = storeToRefs(logStore)
 
 const modeValue = ref(modeRef.value)
 const dateValue = ref(dateRef.value.getTime())
@@ -204,9 +229,18 @@ function onAlidadeChange(value: number) {
 
 function onComplete() {
   store.completeMeasurement()
+  if (logStore.isRecording) {
+    setTimeout(() => {
+      saveRecording()
+    }, 100)
+  }
 }
 
 function onReset() {
+  if (logStore.isRecording) {
+    logStore.cancelRecording()
+    message.info('录制已取消')
+  }
   store.resetAll()
   dateValue.value = dateRef.value.getTime()
   timeValue.value = dateRef.value.getTime()
@@ -214,6 +248,39 @@ function onReset() {
   selectedBodyIdValue.value = selectedBodyIdRef.value
   alidadeAngleValue.value = alidadeAngleRef.value
 }
+
+function onStartRecording() {
+  if (store.isMeasurementComplete) {
+    store.resetMeasurement()
+    alidadeAngleValue.value = 0
+  }
+  logStore.startRecording()
+  message.success('开始录制观测过程')
+}
+
+function onStopRecording() {
+  if (confirm('确定要停止录制吗？未完成的测量将不会保存。')) {
+    logStore.cancelRecording()
+    message.info('录制已取消')
+  }
+}
+
+function saveRecording() {
+  const finalResult = store.getFinalResult()
+  const log = logStore.stopRecording(modeRef.value, finalResult, stepsRef.value)
+  if (log) {
+    message.success(`观测已保存，得分: ${log.finalResult.score}分`)
+  }
+}
+
+watch(
+  () => modeRef.value,
+  () => {
+    if (logStore.isRecording) {
+      logStore.cancelRecording()
+    }
+  }
+)
 </script>
 
 <style scoped>

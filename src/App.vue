@@ -1,18 +1,34 @@
 <script setup lang="ts">
-import { NConfigProvider, NMessageProvider } from 'naive-ui'
+import { NConfigProvider, NMessageProvider, NTabs, NTabPane } from 'naive-ui'
+import { ref, computed } from 'vue'
+import { storeToRefs } from 'pinia'
 import ControlPanel from './components/ControlPanel.vue'
 import NavControlPanel from './components/NavControlPanel.vue'
 import InfoPanel from './components/InfoPanel.vue'
 import Astrolabe3D from './components/Astrolabe3D.vue'
 import SeaChart from './components/SeaChart.vue'
+import LogList from './components/LogList.vue'
+import ReplayControl from './components/ReplayControl.vue'
+import LogRecorder from './components/LogRecorder.vue'
 import { useAstrolabeStore } from './stores/astrolabe'
-import { storeToRefs } from 'pinia'
-import { computed } from 'vue'
+import { useLogStore } from './stores/log'
 
-const store = useAstrolabeStore()
-const { mode } = storeToRefs(store)
+const astrolabeStore = useAstrolabeStore()
+const logStore = useLogStore()
+const { mode } = storeToRefs(astrolabeStore)
+const { isReplayMode } = storeToRefs(logStore)
 
 const isNavigationMode = computed(() => mode.value === 'navigation')
+const rightTabValue = ref('info')
+
+function onReplay(logId: string) {
+  logStore.startReplay(logId)
+  rightTabValue.value = 'replay'
+}
+
+function onExitReplay() {
+  rightTabValue.value = 'log'
+}
 </script>
 
 <template>
@@ -36,11 +52,22 @@ const isNavigationMode = computed(() => mode.value === 'navigation')
             </div>
             <div class="astrolabe-wrapper" v-else>
               <Astrolabe3D />
+              <LogRecorder v-if="!isNavigationMode" />
             </div>
           </main>
 
           <aside class="sider sider-right">
-            <InfoPanel />
+            <ReplayControl v-if="isReplayMode && !isNavigationMode" @exit="onExitReplay" />
+            <template v-else>
+              <n-tabs v-model:value="rightTabValue" type="line" size="small" class="right-tabs">
+                <n-tab-pane name="info" tab="测量信息">
+                  <InfoPanel />
+                </n-tab-pane>
+                <n-tab-pane name="log" tab="航海日志">
+                  <LogList @replay="onReplay" />
+                </n-tab-pane>
+              </n-tabs>
+            </template>
           </aside>
         </div>
       </div>
@@ -105,6 +132,23 @@ const isNavigationMode = computed(() => mode.value === 'navigation')
 
 .sider-right {
   border-left: 1px solid #e0e0e0;
+  width: 350px;
+  padding: 8px;
+}
+
+.right-tabs {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.right-tabs :deep(.n-tabs-content) {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.right-tabs :deep(.n-tabs-tab) {
+  padding: 8px 16px;
 }
 
 .content {

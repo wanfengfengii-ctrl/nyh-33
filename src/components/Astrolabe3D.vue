@@ -1,25 +1,75 @@
 <template>
-  <div ref="containerRef" class="astrolabe-container" @mousedown="onMouseDown" @mousemove="onMouseMove" @mouseup="onMouseUp" @mouseleave="onMouseUp" @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onMouseUp">
+  <div
+    ref="containerRef"
+    class="astrolabe-container"
+    :class="{ 'replay-mode': isReplayMode }"
+    @mousedown="onMouseDown"
+    @mousemove="onMouseMove"
+    @mouseup="onMouseUp"
+    @mouseleave="onMouseUp"
+    @touchstart="onTouchStart"
+    @touchmove="onTouchMove"
+    @touchend="onMouseUp"
+  >
     <canvas ref="canvasRef"></canvas>
     <div class="angle-indicator">
-      <span>照准尺角度: {{ alidadeAngle.toFixed(1) }}°</span>
+      <span>照准尺角度: {{ displayAlidadeAngle.toFixed(1) }}°</span>
+    </div>
+    <div v-if="isReplayMode" class="replay-badge">
+      <span class="replay-icon">▶</span>
+      <span>回放中</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import * as THREE from 'three'
 import { useAstrolabeStore } from '../stores/astrolabe'
+import { useLogStore } from '../stores/log'
 import { storeToRefs } from 'pinia'
-import { toRadians } from '../utils/astronomy'
+import { toRadians, CELESTIAL_BODIES } from '../utils/astronomy'
 
 const containerRef = ref<HTMLDivElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 
 const store = useAstrolabeStore()
+const logStore = useLogStore()
 const { alidadeAngle, bodyPosition, selectedBody, isBodyVisible, latitude } = storeToRefs(store)
 const { setAlidadeAngle } = store
+const { isReplayMode, currentReplayFrame, currentReplayLog } = storeToRefs(logStore)
+
+const displayAlidadeAngle = computed(() => {
+  if (isReplayMode.value && currentReplayFrame.value) {
+    return currentReplayFrame.value.alidadeAngle
+  }
+  return alidadeAngle.value
+})
+
+const displayBodyPosition = computed(() => {
+  if (isReplayMode.value && currentReplayFrame.value) {
+    return {
+      altitude: currentReplayFrame.value.bodyAltitude,
+      azimuth: currentReplayFrame.value.bodyAzimuth,
+    }
+  }
+  return bodyPosition.value
+})
+
+const displaySelectedBody = computed(() => {
+  if (isReplayMode.value && currentReplayLog.value) {
+    const bodyId = currentReplayLog.value.finalResult.bodyId
+    return CELESTIAL_BODIES.find((b) => b.id === bodyId) || CELESTIAL_BODIES[0]
+  }
+  return selectedBody.value
+})
+
+const displayIsBodyVisible = computed(() => {
+  if (isReplayMode.value && currentReplayFrame.value) {
+    return currentReplayFrame.value.bodyAltitude > 0
+  }
+  return isBodyVisible.value
+})
 
 let scene: THREE.Scene
 let camera: THREE.PerspectiveCamera
@@ -238,8 +288,8 @@ function createCelestialMarker() {
 function updateCelestialMarker() {
   if (!celestialMarker) return
 
-  const alt = bodyPosition.value.altitude
-  const az = bodyPosition.value.azimuth
+  const alt = displayBodyPosition.value.altitude
+  const az = displayBodyPosition.value.azimuth
 
   const altRad = toRadians(alt)
   const azRad = toRadians(az)
@@ -255,8 +305,8 @@ function updateCelestialMarker() {
   celestialMarker.position.set(x, y, z)
 
   const material = celestialMarker.material as THREE.MeshBasicMaterial
-  material.opacity = isBodyVisible.value ? 1 : 0.3
-  material.color.set(selectedBody.value.color)
+  material.opacity = displayIsBodyVisible.value ? 1 : 0.3
+  material.color.set(displaySelectedBody.value.color)
 }
 
 function createStars() {
@@ -296,7 +346,7 @@ function createStars() {
 
 function updateAlidade() {
   if (alidadeGroup) {
-    alidadeGroup.rotation.z = toRadians(-alidadeAngle.value)
+    alidadeGroup.rotation.z = toRadians(-displayAlidadeAngle.value)
   }
 }
 
@@ -311,7 +361,7 @@ function onMouseDown(event: MouseEvent) {
   const centerY = rect.height / 2
   const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2)
 
-  if (distance < rect.width * 0.35) {
+  if (distance < rect.width * 0.35 && !isReplayMode.value) {
     isDragging = true
   } else {
     isRotatingView = true
@@ -326,7 +376,7 @@ function onMouseMove(event: MouseEvent) {
   const deltaX = event.clientX - previousMouse.x
   const deltaY = event.clientY - previousMouse.y
 
-  if (isDragging && isBodyVisible.value) {
+  if (isDragging && displayIsBodyVisible.value && !isReplayMode.value) {
     const rect = canvasRef.value?.getBoundingClientRect()
     if (!rect) return
 
@@ -402,11 +452,11 @@ function onResize() {
   renderer.setSize(width, height)
 }
 
-watch(alidadeAngle, () => {
+watch([alidadeAngle, currentReplayFrame], () => {
   updateAlidade()
 })
 
-watch([bodyPosition, selectedBody, isBodyVisible, latitude], () => {
+watch([bodyPosition, selectedBody, isBodyVisible, latitude, currentReplayFrame, currentReplayLog, isReplayMode], () => {
   updateCelestialMarker()
 })
 
@@ -449,5 +499,43 @@ onUnmounted(() => {
   font-family: monospace;
   font-size: 14px;
   z-index: 10;
+}
+
+.replay-mode {
+  cursor: default;
+}
+
+.replay-mode:active {
+  cursor: grab;
+}
+
+.replay-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(32, 128, 240, 0.9);
+  color: white;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 10;
+}
+
+.replay-icon {
+  font-size: 10px;
+  animation: playPulse 1s ease-in-out infinite;
+}
+
+@keyframes playPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 </style>

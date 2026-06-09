@@ -463,6 +463,37 @@ export const useAstrolabeStore = defineStore('astrolabe', () => {
     resetNavigation()
   }
 
+  function getCurrentFrameData() {
+    return {
+      date: new Date(date.value),
+      latitude: latitude.value,
+      longitude: longitude.value,
+      selectedBodyId: selectedBodyId.value,
+      alidadeAngle: alidadeAngle.value,
+      bodyAltitude: bodyPosition.value.altitude,
+      bodyAzimuth: bodyPosition.value.azimuth,
+      currentStepId: currentStep.value.id,
+      isMeasurementComplete: isMeasurementComplete.value,
+      score: score.value,
+      scoreGrade: scoreGrade.value,
+      measurementError: measurementError.value,
+    }
+  }
+
+  function getFinalResult() {
+    return {
+      bodyId: selectedBody.value.id,
+      bodyName: selectedBody.value.name,
+      measuredAltitude: measuredAltitude.value,
+      trueAltitude: bodyPosition.value.altitude,
+      measurementError: error.value,
+      score: score.value,
+      scoreGrade: scoreGrade.value,
+      latitude: latitude.value,
+      observationDate: new Date(date.value),
+    }
+  }
+
   return {
     date,
     latitude,
@@ -528,5 +559,7 @@ export const useAstrolabeStore = defineStore('astrolabe', () => {
     generateRandomScenario,
     formatLatitude,
     formatLongitude,
+    getCurrentFrameData,
+    getFinalResult,
   }
 })
