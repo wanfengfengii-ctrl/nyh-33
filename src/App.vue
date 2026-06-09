@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NConfigProvider, NMessageProvider, NTabs, NTabPane } from 'naive-ui'
+import { NConfigProvider, NMessageProvider, NTabs, NTabPane, NButton } from 'naive-ui'
 import { ref, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import ControlPanel from './components/ControlPanel.vue'
@@ -10,13 +10,19 @@ import SeaChart from './components/SeaChart.vue'
 import LogList from './components/LogList.vue'
 import ReplayControl from './components/ReplayControl.vue'
 import LogRecorder from './components/LogRecorder.vue'
+import ChallengePanel from './components/ChallengePanel.vue'
+import AchievementPanel from './components/AchievementPanel.vue'
+import LeaderboardPanel from './components/LeaderboardPanel.vue'
 import { useAstrolabeStore } from './stores/astrolabe'
 import { useLogStore } from './stores/log'
+import { useChallengeStore } from './stores/challenge'
 
 const astrolabeStore = useAstrolabeStore()
 const logStore = useLogStore()
+const challengeStore = useChallengeStore()
 const { mode } = storeToRefs(astrolabeStore)
 const { isReplayMode } = storeToRefs(logStore)
+const { isChallengeMode } = storeToRefs(challengeStore)
 
 const isNavigationMode = computed(() => mode.value === 'navigation')
 const rightTabValue = ref('info')
@@ -29,6 +35,14 @@ function onReplay(logId: string) {
 function onExitReplay() {
   rightTabValue.value = 'log'
 }
+
+function onToggleChallenge() {
+  if (isChallengeMode.value) {
+    challengeStore.exitChallenge()
+  } else {
+    challengeStore.startChallenge()
+  }
+}
 </script>
 
 <template>
@@ -36,13 +50,23 @@ function onExitReplay() {
     <n-message-provider>
       <div class="app-container">
         <header class="app-header">
-          <h1 class="title">{{ isNavigationMode ? '恒星导航定位系统' : '古航海星盘模拟器' }}</h1>
-          <p class="subtitle">{{ isNavigationMode ? 'Celestial Navigation System' : 'Astrolabe Simulator' }}</p>
+          <h1 class="title">{{ isNavigationMode ? '恒星导航定位系统' : isChallengeMode ? '星空任务挑战' : '古航海星盘模拟器' }}</h1>
+          <p class="subtitle">{{ isNavigationMode ? 'Celestial Navigation System' : isChallengeMode ? 'Star Challenge' : 'Astrolabe Simulator' }}</p>
+          <n-button
+            v-if="!isNavigationMode"
+            :type="isChallengeMode ? 'warning' : 'default'"
+            size="small"
+            @click="onToggleChallenge"
+            style="margin-left: auto"
+          >
+            {{ isChallengeMode ? '退出挑战' : '🌟 星空挑战' }}
+          </n-button>
         </header>
 
         <div class="app-main">
           <aside class="sider sider-left">
             <NavControlPanel v-if="isNavigationMode" />
+            <ChallengePanel v-else-if="isChallengeMode" />
             <ControlPanel v-else />
           </aside>
 
@@ -52,12 +76,25 @@ function onExitReplay() {
             </div>
             <div class="astrolabe-wrapper" v-else>
               <Astrolabe3D />
-              <LogRecorder v-if="!isNavigationMode" />
+              <LogRecorder v-if="!isChallengeMode && !isNavigationMode" />
             </div>
           </main>
 
           <aside class="sider sider-right">
-            <ReplayControl v-if="isReplayMode && !isNavigationMode" @exit="onExitReplay" />
+            <ReplayControl v-if="isReplayMode && !isNavigationMode && !isChallengeMode" @exit="onExitReplay" />
+            <template v-else-if="isChallengeMode">
+              <n-tabs v-model:value="rightTabValue" type="line" size="small" class="right-tabs">
+                <n-tab-pane name="info" tab="测量信息">
+                  <InfoPanel />
+                </n-tab-pane>
+                <n-tab-pane name="achievement" tab="🏆 成就">
+                  <AchievementPanel />
+                </n-tab-pane>
+                <n-tab-pane name="leaderboard" tab="🏅 排行">
+                  <LeaderboardPanel />
+                </n-tab-pane>
+              </n-tabs>
+            </template>
             <template v-else>
               <n-tabs v-model:value="rightTabValue" type="line" size="small" class="right-tabs">
                 <n-tab-pane name="info" :tab="isNavigationMode ? '航行信息' : '测量信息'">
